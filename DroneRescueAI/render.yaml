@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: drone-rescue-ai
+    env: python
+    buildCommand: pip install -r requirements-web.txt
+    startCommand: python app.py
+    envVars:
+      - key: WEB_MODE
+        value: "true"
+      - key: PORT
+        generateValue: false
+        value: "10000"

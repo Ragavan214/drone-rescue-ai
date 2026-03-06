@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+env/
+dist/
+build/
+*.spec
+captures/*.jpg
+captures/*.png
+*.pt
+!yolov8n-pose.pt
+.DS_Store
+Thumbs.db
