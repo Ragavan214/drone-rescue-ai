@@ -1,6 +1,6 @@
 """
 AI Drone Rescue Monitoring System — Flask Backend
-Supports: Local (webcam + YOLOv8), Desktop (PyWebView), Web (demo mode for hosting)
+Supports: Local (webcam + YOLOv8), Web (browser webcam via JS → Flask)
 """
 
 import os
@@ -10,10 +10,11 @@ import base64
 import datetime
 import threading
 import random
-from flask import Flask, Response, render_template, jsonify, send_from_directory
+import numpy as np
+import cv2
+from flask import Flask, Response, render_template, jsonify, send_from_directory, request
 
 # ─── Mode Detection ───────────────────────────────────────────────────────────
-# Set WEB_MODE=true in environment for Render/Railway hosting (no webcam)
 WEB_MODE = os.environ.get("WEB_MODE", "false").lower() == "true"
 
 detector = None
@@ -26,15 +27,58 @@ if not WEB_MODE:
         print("[APP] PoseDetector started — LOCAL mode (webcam + YOLOv8).")
     except Exception as e:
         print(f"[WARN] PoseDetector failed: {e}")
-        print("[APP] Switching to WEB_MODE demo simulation.")
+        print("[APP] Switching to WEB_MODE.")
         WEB_MODE = True
 else:
-    print("[APP] WEB_MODE active — running demo simulation (no webcam needed).")
+    print("[APP] WEB_MODE active — browser webcam mode.")
 
 # ─── Flask ────────────────────────────────────────────────────────────────────
 app = Flask(__name__)
 
-# ─── Telemetry simulation (always running) ────────────────────────────────────
+# ─── YOLOv8 for web frame processing ──────────────────────────────────────────
+yolo_model = None
+if WEB_MODE:
+    try:
+        from ultralytics import YOLO
+        yolo_model = YOLO("yolov8n-pose.pt")
+        print("[APP] YOLOv8n-pose loaded for web frame processing.")
+    except Exception as e:
+        print(f"[WARN] YOLO load failed: {e}")
+
+# ─── Per-session state (keyed by session_id) ──────────────────────────────────
+_sessions = {}
+_sessions_lock = threading.Lock()
+
+def get_session(sid):
+    with _sessions_lock:
+        if sid not in _sessions:
+            _sessions[sid] = {
+                "pose": "none",
+                "status": "SCANNING",
+                "persons": 0,
+                "standing": 0,
+                "sitting": 0,
+                "lying": 0,
+                "emergency": False,
+                "total_detections": 0,
+                "total_standing": 0,
+                "total_sitting": 0,
+                "total_lying": 0,
+                "emergency_sector": None,
+                "log": [],
+                "capture_b64": None,
+                "last_update": time.time(),
+            }
+        return _sessions[sid]
+
+def session_log(sid, msg):
+    s = get_session(sid)
+    ts = datetime.datetime.now().strftime("%H:%M:%S")
+    s["log"].insert(0, f"[{ts}] {msg}")
+    if len(s["log"]) > 50:
+        s["log"].pop()
+
+# ─── Telemetry simulation ─────────────────────────────────────────────────────
 _telem = {"altitude": 45.2, "speed": 12.4, "battery": 87.0, "signal": 94.0, "heading": 0}
 
 def _telem_loop():
@@ -48,64 +92,71 @@ def _telem_loop():
 
 threading.Thread(target=_telem_loop, daemon=True).start()
 
-# ─── Demo simulation (WEB_MODE) ───────────────────────────────────────────────
-DEMO_CYCLE = [
-    {"pose": "standing", "status": "NORMAL",    "persons": 1, "standing": 1, "sitting": 0, "lying": 0, "emergency": False},
-    {"pose": "standing", "status": "NORMAL",    "persons": 2, "standing": 2, "sitting": 0, "lying": 0, "emergency": False},
-    {"pose": "sitting",  "status": "WARNING",   "persons": 1, "standing": 0, "sitting": 1, "lying": 0, "emergency": False},
-    {"pose": "standing", "status": "NORMAL",    "persons": 1, "standing": 1, "sitting": 0, "lying": 0, "emergency": False},
-    {"pose": "lying",    "status": "EMERGENCY", "persons": 1, "standing": 0, "sitting": 0, "lying": 1, "emergency": True},
-    {"pose": "lying",    "status": "EMERGENCY", "persons": 1, "standing": 0, "sitting": 0, "lying": 1, "emergency": True},
-    {"pose": "standing", "status": "NORMAL",    "persons": 1, "standing": 1, "sitting": 0, "lying": 0, "emergency": False},
-    {"pose": "none",     "status": "SCANNING",  "persons": 0, "standing": 0, "sitting": 0, "lying": 0, "emergency": False},
-]
+# ─── Pose classification from keypoints ───────────────────────────────────────
+def classify_pose(keypoints):
+    """Classify pose as standing/sitting/lying from YOLOv8 keypoints."""
+    try:
+        kp = keypoints
+        # nose=0, l_shoulder=5, r_shoulder=6, l_hip=11, r_hip=12, l_knee=13, r_knee=14, l_ankle=15, r_ankle=16
+        def valid(idx):
+            return kp[idx][2] > 0.3  # confidence threshold
 
-_demo = {
-    "state": dict(DEMO_CYCLE[0]),
-    "cycle": 0,
-    "total": 0,
-    "emergency_sector": None,
-    "log": [],
-}
+        nose_y      = kp[0][1]  if valid(0)  else None
+        l_shoulder  = kp[5][1]  if valid(5)  else None
+        r_shoulder  = kp[6][1]  if valid(6)  else None
+        l_hip       = kp[11][1] if valid(11) else None
+        r_hip       = kp[12][1] if valid(12) else None
+        l_ankle     = kp[15][1] if valid(15) else None
+        r_ankle     = kp[16][1] if valid(16) else None
 
-def _demo_log(msg):
-    ts = datetime.datetime.now().strftime("%H:%M:%S")
-    _demo["log"].insert(0, f"[{ts}] {msg}")
-    if len(_demo["log"]) > 50:
-        _demo["log"].pop()
+        shoulder_y = None
+        if l_shoulder and r_shoulder:
+            shoulder_y = (l_shoulder + r_shoulder) / 2
+        elif l_shoulder:
+            shoulder_y = l_shoulder
+        elif r_shoulder:
+            shoulder_y = r_shoulder
 
-_demo_log("System initialized. AI Drone Rescue System ready.")
-_demo_log("YOLOv8n-pose model loaded successfully.")
-_demo_log("Webcam simulation active — Demo Mode")
-_demo_log("Drone online — scanning sector A1")
+        hip_y = None
+        if l_hip and r_hip:
+            hip_y = (l_hip + r_hip) / 2
+        elif l_hip:
+            hip_y = l_hip
+        elif r_hip:
+            hip_y = r_hip
 
-def _demo_loop():
-    while True:
-        time.sleep(4)
-        step = DEMO_CYCLE[_demo["cycle"] % len(DEMO_CYCLE)]
-        _demo["state"] = dict(step)
-        _demo["total"] += step["persons"]
-        _demo["cycle"] += 1
+        ankle_y = None
+        if l_ankle and r_ankle:
+            ankle_y = (l_ankle + r_ankle) / 2
+        elif l_ankle:
+            ankle_y = l_ankle
+        elif r_ankle:
+            ankle_y = r_ankle
 
-        if step["status"] == "EMERGENCY":
-            sec = random.choice(["B2", "C3", "D1", "A3", "B4", "C2"])
-            _demo["emergency_sector"] = sec
-            _demo_log("🚨 EMERGENCY — Person lying on ground detected!")
-            _demo_log(f"Drone dispatched to sector {sec}")
-            _demo_log("Alarm activated — rescue team alerted")
-        elif step["status"] == "WARNING":
-            _demo["emergency_sector"] = None
-            _demo_log("⚠️  Person detected — pose: SITTING")
-        elif step["status"] == "NORMAL" and step["persons"] > 0:
-            _demo["emergency_sector"] = None
-            _demo_log(f"✅ Person detected — pose: STANDING (×{step['persons']})")
-        elif step["status"] == "SCANNING":
-            _demo["emergency_sector"] = None
-            _demo_log(f"🔍 Scanning... no persons in frame")
-            _demo_log(f"Drone repositioning to sector {random.choice(['A2','B1','C4','D3'])}")
+        if shoulder_y is None or hip_y is None:
+            return "standing"
 
-if WEB_MODE:
-    threading.Thread(target=_demo_loop, daemon=True).start()
+        vertical_span = abs(hip_y - (nose_y or shoulder_y))
+        frame_height = 480  # approximate
+
+        # Lying: body is mostly horizontal (small vertical span)
+        if vertical_span < frame_height * 0.15:
+            return "lying"
+
+        # Sitting: hips visible but ankles not far below hips, or legs bent
+        if ankle_y is None:
+            return "sitting"
+
+        leg_length = abs(ankle_y - hip_y)
+        torso_length = abs(hip_y - shoulder_y)
+
+        if leg_length < torso_length * 0.8:
+            return "sitting"
+
+        return "standing"
+
+    except Exception:
+        return "standing"
 
 # ─── Grid pathfinding ─────────────────────────────────────────────────────────
 ROWS = ["A","B","C","D"]
@@ -142,7 +193,6 @@ def index():
 def video_feed():
     if WEB_MODE:
         return Response(status=204)
-
     def generate():
         while True:
             frame = detector.get_frame()
@@ -151,18 +201,148 @@ def video_feed():
             time.sleep(0.04)
     return Response(generate(), mimetype="multipart/x-mixed-replace; boundary=frame")
 
+@app.route("/process_frame", methods=["POST"])
+def process_frame():
+    """Receive a base64 frame from browser webcam, run YOLOv8, return results."""
+    if not WEB_MODE:
+        return jsonify({"error": "not in web mode"}), 400
+
+    data = request.get_json()
+    if not data or "frame" not in data:
+        return jsonify({"error": "no frame"}), 400
+
+    sid = data.get("session_id", "default")
+    session = get_session(sid)
+
+    try:
+        # Decode base64 image
+        img_data = data["frame"].split(",")[1] if "," in data["frame"] else data["frame"]
+        img_bytes = base64.b64decode(img_data)
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        if frame is None:
+            return jsonify({"error": "invalid frame"}), 400
+
+        result_data = {
+            "pose": "none", "status": "SCANNING",
+            "persons": 0, "standing": 0, "sitting": 0, "lying": 0,
+            "emergency": False, "annotated_frame": None
+        }
+
+        if yolo_model is not None:
+            results = yolo_model(frame, verbose=False, conf=0.4)
+            result = results[0]
+
+            standing = sitting = lying = 0
+            emergency = False
+
+            if result.keypoints is not None and len(result.keypoints.data) > 0:
+                for kp_data in result.keypoints.data:
+                    kp = kp_data.cpu().numpy()
+                    pose = classify_pose(kp)
+                    if pose == "standing":   standing += 1
+                    elif pose == "sitting":  sitting += 1
+                    elif pose == "lying":
+                        lying += 1
+                        emergency = True
+
+            persons = standing + sitting + lying
+
+            # Determine overall status
+            if lying > 0:
+                status = "EMERGENCY"
+                pose_label = "lying"
+            elif sitting > 0:
+                status = "WARNING"
+                pose_label = "sitting"
+            elif standing > 0:
+                status = "NORMAL"
+                pose_label = "standing"
+            else:
+                status = "SCANNING"
+                pose_label = "none"
+
+            # Update session state
+            session["pose"]     = pose_label
+            session["status"]   = status
+            session["persons"]  = persons
+            session["standing"] = standing
+            session["sitting"]  = sitting
+            session["lying"]    = lying
+            session["emergency"] = emergency
+            session["total_detections"] += persons
+            session["total_standing"]   += standing
+            session["total_sitting"]    += sitting
+            session["total_lying"]      += lying
+            session["last_update"]      = time.time()
+
+            # Log events
+            if emergency and not session.get("_last_emg"):
+                session["_last_emg"] = True
+                session["emergency_sector"] = random.choice(["B2","C3","D1","A3","B4","C2"])
+                session_log(sid, "🚨 EMERGENCY — Person lying on ground detected!")
+                session_log(sid, f"Drone dispatched to sector {session['emergency_sector']}")
+            elif not emergency:
+                session["_last_emg"] = False
+                session["emergency_sector"] = None
+                if persons > 0:
+                    session_log(sid, f"✅ {persons} person(s) detected — {pose_label.upper()}")
+
+            # Annotate frame and encode back
+            annotated = result.plot()
+            _, buffer = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 70])
+            annotated_b64 = base64.b64encode(buffer).decode()
+
+            result_data = {
+                "pose": pose_label,
+                "status": status,
+                "persons": persons,
+                "standing": standing,
+                "sitting": sitting,
+                "lying": lying,
+                "emergency": emergency,
+                "annotated_frame": "data:image/jpeg;base64," + annotated_b64,
+            }
+
+            # Save emergency capture
+            if emergency:
+                os.makedirs("captures", exist_ok=True)
+                ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                cap_path = os.path.join("captures", f"emergency_{ts}.jpg")
+                cv2.imwrite(cap_path, annotated)
+                with open(cap_path, "rb") as f:
+                    session["capture_b64"] = base64.b64encode(f.read()).decode()
+
+    except Exception as e:
+        print(f"[ERROR] process_frame: {e}")
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify(result_data)
+
 @app.route("/detections")
 def detections():
     if WEB_MODE:
-        esec = _demo["emergency_sector"]
+        sid = request.args.get("session_id", "default")
+        session = get_session(sid)
+        esec = session["emergency_sector"]
         result = {
-            **_demo["state"],
-            "total_detections":  _demo["total"],
-            "emergency_sector":  esec,
-            "timestamp":         time.time(),
-            "log":               list(_demo["log"]),
-            "capture_b64":       None,
-            "web_mode":          True,
+            "pose":             session["pose"],
+            "status":           session["status"],
+            "persons":          session["persons"],
+            "standing":         session["standing"],
+            "sitting":          session["sitting"],
+            "lying":            session["lying"],
+            "emergency":        session["emergency"],
+            "total_detections": session["total_detections"],
+            "total_standing":   session["total_standing"],
+            "total_sitting":    session["total_sitting"],
+            "total_lying":      session["total_lying"],
+            "emergency_sector": esec,
+            "capture_b64":      session["capture_b64"],
+            "log":              list(session["log"]),
+            "web_mode":         True,
+            "timestamp":        time.time(),
         }
     else:
         result = detector.get_result()
@@ -172,20 +352,14 @@ def detections():
             with open(cap, "rb") as f:
                 result["capture_b64"] = base64.b64encode(f.read()).decode()
         else:
-            caps = sorted([f for f in os.listdir("captures") if f.endswith(".jpg")])
             result["capture_b64"] = None
-            if caps:
-                with open(os.path.join("captures", caps[-1]), "rb") as f:
-                    result["capture_b64"] = base64.b64encode(f.read()).decode()
         result["web_mode"] = False
 
-    # Telemetry
-    result["telemetry"] = {k: (round(v, 1) if isinstance(v, float) else v) for k, v in _telem.items()}
+    result["telemetry"] = {k: (round(v,1) if isinstance(v, float) else v) for k,v in _telem.items()}
 
-    # Drone path
-    if esec:
-        path = bfs(sector_to_coords("A1"), sector_to_coords(esec))
-        result["drone_path"] = [coords_to_sector(r, c) for r, c in path]
+    if result.get("emergency_sector"):
+        path = bfs(sector_to_coords("A1"), sector_to_coords(result["emergency_sector"]))
+        result["drone_path"] = [coords_to_sector(r,c) for r,c in path]
     else:
         result["drone_path"] = []
 
@@ -194,11 +368,11 @@ def detections():
 @app.route("/status")
 def status():
     return jsonify({
-        "ai_model":  "YOLOv8n-pose" + (" (Demo)" if WEB_MODE else " (Live)"),
-        "camera":    "Simulated" if WEB_MODE else "Connected",
+        "ai_model":  "YOLOv8n-pose" + (" (Web)" if WEB_MODE else " (Live)"),
+        "camera":    "Browser Webcam" if WEB_MODE else "Connected",
         "detection": "Active",
         "network":   "Online",
-        "mode":      "WEB_DEMO" if WEB_MODE else "LOCAL_LIVE",
+        "mode":      "WEB_LIVE" if WEB_MODE else "LOCAL_LIVE",
         "uptime":    int(time.time()),
     })
 
@@ -210,7 +384,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print("=" * 60)
     print("  AI DRONE RESCUE MONITORING SYSTEM")
-    print(f"  Mode  : {'WEB DEMO (no webcam)' if WEB_MODE else 'LOCAL LIVE (webcam + YOLOv8)'}")
+    print(f"  Mode  : {'WEB LIVE (browser webcam)' if WEB_MODE else 'LOCAL LIVE (webcam + YOLOv8)'}")
     print(f"  URL   : http://0.0.0.0:{port}")
     print("=" * 60)
     app.run(host="0.0.0.0", port=port, debug=False, threaded=True)

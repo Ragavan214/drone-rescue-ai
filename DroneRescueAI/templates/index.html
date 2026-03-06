@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
 <style>
-  /* ── VARIABLES ─────────────────────────────────────────── */
   :root {
     --bg:        #020a14;
     --panel:     #050f1e;
@@ -24,437 +23,185 @@
     --font-hud:  'Orbitron', monospace;
     --font-mono: 'Share Tech Mono', monospace;
   }
-
-  /* ── RESET + BASE ──────────────────────────────────────── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     width: 100%; height: 100%; overflow: hidden;
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-mono);
-    font-size: 13px;
+    background: var(--bg); color: var(--text);
+    font-family: var(--font-mono); font-size: 13px;
   }
-
-  /* ── SCANLINE OVERLAY ───────────────────────────────────── */
   body::before {
     content: '';
     position: fixed; inset: 0; z-index: 9999; pointer-events: none;
-    background: repeating-linear-gradient(
-      to bottom,
-      transparent 0px,
-      transparent 2px,
-      rgba(0,0,0,0.12) 2px,
-      rgba(0,0,0,0.12) 4px
-    );
+    background: repeating-linear-gradient(to bottom, transparent 0px, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 4px);
   }
-
-  /* ── GRID LAYOUT ────────────────────────────────────────── */
   #app {
     display: grid;
     width: 100vw; height: 100vh;
     grid-template-columns: 1fr 260px 260px;
-    grid-template-rows: 52px 1fr 1fr 36px;
-    gap: 2px;
-    padding: 4px;
+    grid-template-rows: 52px 1fr 1fr 1fr 36px;
+    gap: 2px; padding: 4px;
   }
-
-  /* ── TOP BAR ────────────────────────────────────────────── */
   #topbar {
     grid-column: 1 / -1;
     display: flex; align-items: center; justify-content: space-between;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    padding: 0 18px;
+    background: var(--panel); border: 1px solid var(--border); padding: 0 18px;
   }
-  #topbar .logo {
-    font-family: var(--font-hud); font-size: 16px; font-weight: 900;
-    letter-spacing: 4px; color: var(--accent);
-    text-shadow: var(--glow);
-  }
+  #topbar .logo { font-family: var(--font-hud); font-size: 16px; font-weight: 900; letter-spacing: 4px; color: var(--accent); text-shadow: var(--glow); }
   #topbar .logo span { color: var(--accent2); }
   .topbar-stats { display: flex; gap: 28px; }
   .tstat { display: flex; flex-direction: column; align-items: center; }
   .tstat-label { font-size: 9px; color: var(--dim); letter-spacing: 1px; }
   .tstat-val { font-family: var(--font-hud); font-size: 13px; color: var(--accent); }
   #clock { font-family: var(--font-hud); font-size: 13px; color: var(--accent2); letter-spacing: 2px; }
-
-  /* ── PANELS ─────────────────────────────────────────────── */
   .panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    position: relative; overflow: hidden;
+    background: var(--panel); border: 1px solid var(--border);
+    display: flex; flex-direction: column; position: relative; overflow: hidden;
   }
   .panel::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    opacity: 0.6;
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.6;
   }
   .panel-title {
     font-family: var(--font-hud); font-size: 9px; font-weight: 700;
-    letter-spacing: 3px; color: var(--dim);
-    padding: 7px 12px 5px;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 8px;
+    letter-spacing: 3px; color: var(--dim); padding: 7px 12px 5px;
+    border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px;
   }
-  .panel-title::before {
-    content: '▸'; color: var(--accent); font-size: 8px;
-  }
+  .panel-title::before { content: '▸'; color: var(--accent); font-size: 8px; }
   .panel-body { flex: 1; overflow: hidden; padding: 10px 12px; }
 
-  /* ── CAMERA ─────────────────────────────────────────────── */
+  /* CAMERA */
   #cam-panel { grid-column: 1; grid-row: 2 / 4; }
-  #cam-panel .panel-body { padding: 8px; }
-  #camera-stream {
-    width: 100%; height: 100%;
-    object-fit: cover;
-    display: block;
-    filter: saturate(1.1) contrast(1.05);
+  #cam-panel .panel-body { padding: 0; position: relative; }
+  #webcam-video {
+    position: absolute; width: 100%; height: 100%;
+    object-fit: cover; display: block; transform: scaleX(-1);
+    opacity: 0;
   }
-  .cam-overlay {
-    position: absolute; inset: 0; pointer-events: none;
-    border: 2px solid transparent;
-    transition: border-color 0.3s, box-shadow 0.3s;
+  #annotated-canvas {
+    position: absolute; width: 100%; height: 100%;
+    object-fit: cover; display: block;
   }
-  .cam-corner {
-    position: absolute; width: 18px; height: 18px;
-    border-color: var(--accent); border-style: solid;
+  #cam-placeholder {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; background: #020a14;
   }
-  .cam-corner.tl { top: 36px; left: 8px; border-width: 2px 0 0 2px; }
-  .cam-corner.tr { top: 36px; right: 8px; border-width: 2px 2px 0 0; }
-  .cam-corner.bl { bottom: 8px; left: 8px; border-width: 0 0 2px 2px; }
-  .cam-corner.br { bottom: 8px; right: 8px; border-width: 0 2px 2px 0; }
-  .cam-reticle {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    width: 40px; height: 40px; opacity: 0.3;
-    border: 1px solid var(--accent);
-    border-radius: 50%;
-    animation: pulse-ring 2s linear infinite;
+  #cam-placeholder p { font-family: var(--font-hud); font-size: 11px; color: var(--dim); letter-spacing: 2px; text-align: center; }
+  #start-cam-btn {
+    background: rgba(0,212,255,0.15); border: 1px solid var(--accent);
+    color: var(--accent); font-family: var(--font-hud); font-size: 11px;
+    letter-spacing: 2px; padding: 10px 24px; cursor: pointer; border-radius: 3px;
+    transition: all 0.2s;
   }
-  @keyframes pulse-ring {
-    0%   { transform: translate(-50%,-50%) scale(1); opacity: 0.3; }
-    50%  { opacity: 0.6; }
-    100% { transform: translate(-50%,-50%) scale(1.5); opacity: 0; }
+  #start-cam-btn:hover { background: rgba(0,212,255,0.3); box-shadow: var(--glow); }
+  .cam-corner { position: absolute; width: 18px; height: 18px; border-color: var(--accent); border-style: solid; z-index: 5; }
+  .cam-corner.tl { top: 36px; left: 0; border-width: 2px 0 0 2px; }
+  .cam-corner.tr { top: 36px; right: 0; border-width: 2px 2px 0 0; }
+  .cam-corner.bl { bottom: 0; left: 0; border-width: 0 0 2px 2px; }
+  .cam-corner.br { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+  #cam-badge {
+    position: absolute; top: 10px; left: 10px; z-index: 10;
+    background: rgba(0,255,157,0.2); border: 1px solid var(--accent2);
+    color: var(--accent2); font-family: var(--font-hud); font-size: 10px;
+    padding: 4px 10px; border-radius: 3px; letter-spacing: 1px; display: none;
+  }
+  #cam-overlay-border {
+    position: absolute; inset: 0; pointer-events: none; z-index: 4;
+    border: 2px solid transparent; transition: border-color 0.3s;
   }
 
-  /* ── STATUS ─────────────────────────────────────────────── */
+  /* STATUS */
   #status-panel { grid-column: 2; grid-row: 2; }
-  .status-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 5px 0; border-bottom: 1px solid rgba(13,58,92,0.4);
-  }
+  .status-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(13,58,92,0.4); }
   .status-label { color: var(--dim); font-size: 11px; letter-spacing: 1px; }
   .status-val { font-family: var(--font-hud); font-size: 10px; color: var(--accent2); }
   .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-  .dot.green  { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); animation: blink 1.5s infinite; }
-  .dot.blue   { background: var(--accent); }
-  .dot.red    { background: var(--danger); box-shadow: 0 0 6px var(--danger); animation: blink 0.5s infinite; }
+  .dot.green { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); animation: blink 1.5s infinite; }
+  .dot.blue  { background: var(--accent); }
+  .dot.red   { background: var(--danger); box-shadow: 0 0 6px var(--danger); animation: blink 0.5s infinite; }
+  .dot.grey  { background: var(--dim); }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .big-status { margin-top: 10px; padding: 10px; text-align: center; font-family: var(--font-hud); font-size: 18px; font-weight: 900; letter-spacing: 4px; border: 1px solid var(--border); transition: all 0.3s; }
+  .big-status.normal    { color: var(--accent2); border-color: var(--accent2); text-shadow: var(--glow-g); }
+  .big-status.warning   { color: var(--warn); border-color: var(--warn); }
+  .big-status.emergency { color: var(--danger); border-color: var(--danger); text-shadow: var(--glow-r); animation: flash-border 0.4s alternate infinite; }
+  @keyframes flash-border { from{box-shadow:none} to{box-shadow:0 0 20px var(--danger),inset 0 0 10px rgba(255,34,68,0.1)} }
 
-  .big-status {
-    margin-top: 10px; padding: 10px;
-    text-align: center;
-    font-family: var(--font-hud); font-size: 18px; font-weight: 900;
-    letter-spacing: 4px;
-    border: 1px solid var(--border);
-    transition: all 0.3s;
-  }
-  .big-status.normal   { color: var(--accent2); border-color: var(--accent2); text-shadow: var(--glow-g); }
-  .big-status.warning  { color: var(--warn); border-color: var(--warn); text-shadow: 0 0 12px rgba(255,157,0,0.5); }
-  .big-status.emergency {
-    color: var(--danger); border-color: var(--danger);
-    text-shadow: var(--glow-r);
-    animation: flash-border 0.4s alternate infinite;
-  }
-  @keyframes flash-border {
-    from { box-shadow: none; }
-    to   { box-shadow: 0 0 20px var(--danger), inset 0 0 10px rgba(255,34,68,0.1); }
-  }
-
-  /* ── DETECTION STATS ────────────────────────────────────── */
+  /* STATS */
   #stats-panel { grid-column: 3; grid-row: 2; }
-  .stat-item {
-    display: flex; flex-direction: column;
-    margin-bottom: 10px;
-  }
-  .stat-item label {
-    font-size: 9px; letter-spacing: 2px; color: var(--dim); margin-bottom: 3px;
-  }
-  .stat-bar-wrap {
-    display: flex; align-items: center; gap: 8px;
-  }
-  .stat-bar {
-    flex: 1; height: 4px; background: rgba(13,58,92,0.6);
-    border-radius: 2px; overflow: hidden;
-  }
-  .stat-bar-fill {
-    height: 100%; border-radius: 2px; transition: width 0.5s;
-  }
-  .fill-green  { background: var(--accent2); box-shadow: var(--glow-g); }
+  .stat-item { display: flex; flex-direction: column; margin-bottom: 10px; }
+  .stat-item label { font-size: 9px; letter-spacing: 2px; color: var(--dim); margin-bottom: 3px; }
+  .stat-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .stat-bar { flex: 1; height: 4px; background: rgba(13,58,92,0.6); border-radius: 2px; overflow: hidden; }
+  .stat-bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+  .fill-green  { background: var(--accent2); }
   .fill-orange { background: var(--warn); }
-  .fill-red    { background: var(--danger); box-shadow: var(--glow-r); }
+  .fill-red    { background: var(--danger); }
   .fill-blue   { background: var(--accent); }
-  .stat-num {
-    font-family: var(--font-hud); font-size: 14px;
-    min-width: 28px; text-align: right;
-  }
-  .num-green  { color: var(--accent2); }
-  .num-orange { color: var(--warn); }
-  .num-red    { color: var(--danger); }
-  .num-blue   { color: var(--accent); }
+  .stat-num { font-family: var(--font-hud); font-size: 14px; min-width: 28px; text-align: right; }
+  .num-green { color: var(--accent2); } .num-orange { color: var(--warn); } .num-red { color: var(--danger); } .num-blue { color: var(--accent); }
 
-  /* ── CAPTURE ────────────────────────────────────────────── */
+  /* CAPTURE */
   #capture-panel { grid-column: 2; grid-row: 3; }
-  #capture-panel .panel-body {
-    display: flex; align-items: center; justify-content: center;
-    padding: 6px;
-  }
-  #capture-img {
-    max-width: 100%; max-height: 100%;
-    object-fit: contain;
-    border: 1px solid var(--border);
-    display: none;
-    filter: sepia(0.2) saturate(1.3);
-  }
-  #no-capture {
-    color: var(--dim); font-size: 10px; letter-spacing: 2px; text-align: center;
-    line-height: 1.8;
-  }
-  #capture-ts {
-    position: absolute; bottom: 8px; right: 8px;
-    font-size: 9px; color: var(--dim);
-    display: none;
-  }
+  #capture-panel .panel-body { display: flex; align-items: center; justify-content: center; padding: 6px; }
+  #capture-img { max-width: 100%; max-height: 100%; object-fit: contain; border: 1px solid var(--border); display: none; }
+  #no-capture { color: var(--dim); font-size: 10px; letter-spacing: 2px; text-align: center; line-height: 1.8; }
 
-  /* ── TELEMETRY ───────────────────────────────────────────── */
+  /* TELEMETRY */
   #telem-panel { grid-column: 3; grid-row: 3; }
   .telem-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .telem-cell {
-    background: rgba(13,58,92,0.25);
-    border: 1px solid rgba(13,58,92,0.6);
-    padding: 8px 10px;
-    display: flex; flex-direction: column;
-    align-items: center;
-  }
-  .telem-label {
-    font-size: 8px; letter-spacing: 2px; color: var(--dim); margin-bottom: 3px;
-  }
-  .telem-val {
-    font-family: var(--font-hud); font-size: 18px; color: var(--accent);
-    text-shadow: var(--glow); transition: color 0.3s;
-  }
+  .telem-cell { background: rgba(13,58,92,0.25); border: 1px solid rgba(13,58,92,0.6); padding: 8px 10px; display: flex; flex-direction: column; align-items: center; }
+  .telem-label { font-size: 8px; letter-spacing: 2px; color: var(--dim); margin-bottom: 3px; }
+  .telem-val { font-family: var(--font-hud); font-size: 18px; color: var(--accent); text-shadow: var(--glow); transition: color 0.3s; }
   .telem-unit { font-size: 9px; color: var(--dim); margin-top: 2px; }
-  .compass-wrap {
-    display: flex; justify-content: center; margin-top: 8px;
-  }
-  .compass {
-    width: 52px; height: 52px; border-radius: 50%;
-    border: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: center;
-    position: relative;
-    background: radial-gradient(circle, rgba(0,212,255,0.05) 0%, transparent 70%);
-  }
-  .compass-arrow {
-    position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
-    width: 2px; height: 20px; background: var(--danger);
-    transform-origin: bottom center;
-    transition: transform 1s ease;
-  }
-  .compass-n {
-    font-family: var(--font-hud); font-size: 8px; color: var(--danger);
-    position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
-  }
+  .compass-wrap { display: flex; justify-content: center; margin-top: 8px; }
+  .compass { width: 52px; height: 52px; border-radius: 50%; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; position: relative; background: radial-gradient(circle, rgba(0,212,255,0.05) 0%, transparent 70%); }
+  .compass-arrow { position: absolute; top: 4px; left: 50%; width: 2px; height: 20px; background: var(--danger); transform-origin: bottom center; transition: transform 1s ease; }
+  .compass-n { font-family: var(--font-hud); font-size: 8px; color: var(--danger); position: absolute; top: 4px; left: 50%; transform: translateX(-50%); }
 
-  /* ── MISSION LOG ─────────────────────────────────────────── */
-  #log-panel { grid-column: 1; grid-row: 4; display: none; }
+  /* MAP + LOG ROW */
+  #map-log-row { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 260px 260px; gap: 2px; overflow: hidden; min-height: 0; }
+  #map-panel-inner { grid-column: 1; background: var(--panel); border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  #map-panel-inner::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.6; }
+  #log-panel-inner { grid-column: 2 / 4; background: var(--panel); border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  #log-panel-inner::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.6; }
+  .sector-grid { display: grid; grid-template-columns: repeat(4,1fr); grid-template-rows: repeat(4,1fr); gap: 3px; flex: 1; padding: 8px; }
+  .sector { background: rgba(13,58,92,0.25); border: 1px solid rgba(13,58,92,0.5); display: flex; align-items: center; justify-content: center; font-family: var(--font-hud); font-size: 10px; color: var(--dim); position: relative; transition: all 0.3s; min-height: 0; }
+  .sector.active  { background: rgba(0,212,255,0.15); border-color: var(--accent); color: var(--accent); }
+  .sector.victim  { background: rgba(255,34,68,0.2); border-color: var(--danger); color: var(--danger); animation: flash-border 0.4s alternate infinite; }
+  .sector.drone   { background: rgba(0,255,157,0.15); border-color: var(--accent2); color: var(--accent2); }
+  .sector.path    { background: rgba(0,212,255,0.07); border-color: rgba(0,212,255,0.3); }
+  .drone-icon { font-size: 14px; }
+  .log-list { flex: 1; overflow-y: auto; padding: 6px 10px; }
+  .log-list::-webkit-scrollbar { width: 3px; }
+  .log-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .log-line { font-size: 10px; padding: 2px 0; border-bottom: 1px solid rgba(13,58,92,0.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log-line.emg  { color: var(--danger); }
+  .log-line.warn { color: var(--warn); }
+  .log-line.info { color: var(--text); }
+  .log-line.new  { background: rgba(0,212,255,0.08); }
 
-  /* ── BOTTOM BAR ─────────────────────────────────────────── */
-  #bottombar {
-    grid-column: 1 / -1;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    display: flex; align-items: center; gap: 0;
-    padding: 0; overflow: hidden;
-  }
-  #log-ticker {
-    display: flex; align-items: center;
-    font-size: 11px; color: var(--text);
-    white-space: nowrap;
-    overflow: hidden; flex: 1;
-    padding: 0 12px;
-    gap: 20px;
-  }
-  .log-label {
-    font-family: var(--font-hud); font-size: 9px; letter-spacing: 2px;
-    color: var(--accent); flex-shrink: 0; padding-right: 12px;
-    border-right: 1px solid var(--border); margin-right: 12px;
-  }
-  .log-entry { transition: all 0.3s; }
+  /* BOTTOMBAR */
+  #bottombar { grid-column: 1 / -1; background: var(--panel); border: 1px solid var(--border); display: flex; align-items: center; padding: 0; overflow: hidden; }
+  #log-ticker { display: flex; align-items: center; font-size: 11px; color: var(--text); white-space: nowrap; overflow: hidden; flex: 1; padding: 0 12px; gap: 20px; }
+  .log-label { font-family: var(--font-hud); font-size: 9px; letter-spacing: 2px; color: var(--accent); flex-shrink: 0; padding-right: 12px; border-right: 1px solid var(--border); margin-right: 12px; }
   .log-emergency { color: var(--danger); }
   .log-normal { color: var(--text); }
 
-  /* Separate log panel */
-  #log-side {
-    grid-column: 1; grid-row: 4;
-    display: none;
-  }
-
-  /* ── SECTOR MAP ─────────────────────────────────────────── */
-  #map-wrap {
-    grid-column: 1 / 2; /* overlays on the camera-ish but we'll put it bottom */
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  /* We'll overlay the map + log in the bottom row spans */
-  /* Revised: bottombar is row 4, map is inside log panel as panel row 4 col 2-3 */
-
-  #map-panel { grid-column: 2 / 4; grid-row: 4; display: flex; flex-direction: row; overflow: hidden; }
-
-  /* Actually redesign: put map and log side by side in row 4 */
-  /* Final layout: row 4 = bottombar fullwidth. Use a floating log window or integrate into sidebar */
-
-  /* ── FULL LOG + MAP IN LOWER RIGHT ──────────────────────── */
-  /* We'll add a separate flex row for map and log below the main panels */
-
-  /* Override grid to 5 rows */
-  #app {
-    grid-template-rows: 52px 1fr 1fr 1fr 36px;
-  }
-
-  /* Row 4: map + log area */
-  #map-log-row {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: 1fr 260px 260px;
-    gap: 2px;
-    overflow: hidden;
-    min-height: 0;
-  }
-
-  #map-panel-inner {
-    grid-column: 1;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    overflow: hidden; position: relative;
-  }
-  #map-panel-inner::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    opacity: 0.6;
-  }
-
-  #log-panel-inner {
-    grid-column: 2 / 4;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    overflow: hidden; position: relative;
-  }
-  #log-panel-inner::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    opacity: 0.6;
-  }
-
-  /* sector grid */
-  .sector-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(4, 1fr);
-    gap: 3px;
-    flex: 1;
-    padding: 8px;
-  }
-  .sector {
-    background: rgba(13,58,92,0.25);
-    border: 1px solid rgba(13,58,92,0.5);
-    display: flex; align-items: center; justify-content: center;
-    font-family: var(--font-hud); font-size: 10px; color: var(--dim);
-    position: relative; transition: all 0.3s; cursor: default;
-    min-height: 0;
-  }
-  .sector.active   { background: rgba(0,212,255,0.15); border-color: var(--accent); color: var(--accent); }
-  .sector.victim   { background: rgba(255,34,68,0.2); border-color: var(--danger); color: var(--danger); animation: flash-border 0.4s alternate infinite; }
-  .sector.drone    { background: rgba(0,255,157,0.15); border-color: var(--accent2); color: var(--accent2); }
-  .sector.path     { background: rgba(0,212,255,0.07); border-color: rgba(0,212,255,0.3); }
-  .drone-icon { font-size: 14px; position: relative; z-index: 2; }
-
-  /* log list */
-  .log-list {
-    flex: 1; overflow-y: auto; padding: 6px 10px;
-  }
-  .log-list::-webkit-scrollbar { width: 3px; }
-  .log-list::-webkit-scrollbar-track { background: transparent; }
-  .log-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-  .log-line {
-    font-size: 10px; padding: 2px 0;
-    border-bottom: 1px solid rgba(13,58,92,0.3);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    transition: background 0.3s;
-  }
-  .log-line.emg { color: var(--danger); }
-  .log-line.warn { color: var(--warn); }
-  .log-line.info { color: var(--text); }
-  .log-line.new { background: rgba(0,212,255,0.08); }
-
-  /* ── EMERGENCY OVERLAY ──────────────────────────────────── */
-  #emergency-overlay {
-    position: fixed; inset: 0; z-index: 1000; pointer-events: none;
-    border: 4px solid var(--danger);
-    box-shadow: inset 0 0 60px rgba(255,34,68,0.15);
-    opacity: 0; transition: opacity 0.3s;
-    animation: none;
-  }
-  #emergency-overlay.active {
-    opacity: 1;
-    animation: em-flash 0.6s alternate infinite;
-  }
-  @keyframes em-flash {
-    from { border-color: var(--danger); box-shadow: inset 0 0 60px rgba(255,34,68,0.15); }
-    to   { border-color: rgba(255,34,68,0.5); box-shadow: inset 0 0 120px rgba(255,34,68,0.3); }
-  }
-
-  #emergency-banner {
-    position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
-    z-index: 1001; pointer-events: none;
-    background: var(--danger); color: white;
-    font-family: var(--font-hud); font-size: 14px; font-weight: 900;
-    letter-spacing: 6px; padding: 8px 32px;
-    opacity: 0; transition: opacity 0.3s;
-    box-shadow: 0 0 30px var(--danger);
-  }
-  #emergency-banner.active {
-    opacity: 1;
-    animation: em-flash2 0.5s alternate infinite;
-  }
-  @keyframes em-flash2 {
-    from { background: var(--danger); }
-    to   { background: rgba(255,34,68,0.7); }
-  }
-
-  /* ── MISC ────────────────────────────────────────────────── */
-  .pill {
-    display: inline-block; padding: 1px 7px;
-    border-radius: 2px; font-size: 9px; letter-spacing: 1px;
-    font-family: var(--font-hud);
-  }
-  .pill-green { background: rgba(0,255,157,0.15); color: var(--accent2); border: 1px solid var(--accent2); }
-  .pill-red   { background: rgba(255,34,68,0.15); color: var(--danger); border: 1px solid var(--danger); }
+  /* EMERGENCY */
+  #emergency-overlay { position: fixed; inset: 0; z-index: 1000; pointer-events: none; border: 4px solid var(--danger); box-shadow: inset 0 0 60px rgba(255,34,68,0.15); opacity: 0; transition: opacity 0.3s; }
+  #emergency-overlay.active { opacity: 1; animation: em-flash 0.6s alternate infinite; }
+  @keyframes em-flash { from{border-color:var(--danger)} to{border-color:rgba(255,34,68,0.5)} }
+  #emergency-banner { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 1001; pointer-events: none; background: var(--danger); color: white; font-family: var(--font-hud); font-size: 14px; font-weight: 900; letter-spacing: 6px; padding: 8px 32px; opacity: 0; transition: opacity 0.3s; box-shadow: 0 0 30px var(--danger); }
+  #emergency-banner.active { opacity: 1; animation: em-flash2 0.5s alternate infinite; }
+  @keyframes em-flash2 { from{background:var(--danger)} to{background:rgba(255,34,68,0.7)} }
 </style>
 </head>
 <body>
 
-<!-- Emergency overlay + banner -->
 <div id="emergency-overlay"></div>
 <div id="emergency-banner">⚠ EMERGENCY DETECTED ⚠</div>
 
-<!-- Main grid -->
 <div id="app">
 
   <!-- TOP BAR -->
@@ -473,20 +220,26 @@
   <!-- LIVE CAMERA -->
   <div class="panel" id="cam-panel">
     <div class="panel-title">LIVE DRONE CAMERA</div>
-    <div class="panel-body" style="padding:0; position:relative;">
+    <div class="panel-body">
+
       {% if web_mode %}
-      <canvas id="camera-stream" width="640" height="480" style="width:100%;height:100%;object-fit:cover;display:block;"></canvas>
-      <div id="demo-badge" style="position:absolute;top:10px;left:10px;background:rgba(0,212,255,0.2);border:1px solid #00d4ff;color:#00d4ff;font-family:'Orbitron',monospace;font-size:10px;padding:4px 10px;border-radius:3px;letter-spacing:1px;z-index:10;">DEMO MODE — SIMULATED FEED</div>
+      <!-- Browser webcam elements -->
+      <video id="webcam-video" autoplay playsinline muted></video>
+      <canvas id="annotated-canvas"></canvas>
+      <div id="cam-placeholder">
+        <p>BROWSER WEBCAM REQUIRED<br>CLICK TO ACTIVATE CAMERA</p>
+        <button id="start-cam-btn">▶ START CAMERA</button>
+      </div>
+      <div id="cam-badge">● LIVE — AI DETECTION ACTIVE</div>
       {% else %}
       <img id="camera-stream" src="/video_feed" alt="Live Feed" style="width:100%;height:100%;object-fit:cover;display:block;"/>
       {% endif %}
-      <div class="cam-overlay" id="cam-overlay">
-        <div class="cam-corner tl"></div>
-        <div class="cam-corner tr"></div>
-        <div class="cam-corner bl"></div>
-        <div class="cam-corner br"></div>
-        <div class="cam-reticle"></div>
-      </div>
+
+      <div id="cam-overlay-border"></div>
+      <div class="cam-corner tl"></div>
+      <div class="cam-corner tr"></div>
+      <div class="cam-corner bl"></div>
+      <div class="cam-corner br"></div>
     </div>
   </div>
 
@@ -500,7 +253,7 @@
       </div>
       <div class="status-row">
         <span class="status-label">CAMERA</span>
-        <span class="status-val"><span class="dot green" id="cam-dot"></span>CONNECTED</span>
+        <span class="status-val"><span class="dot grey" id="cam-dot"></span><span id="cam-status-text">WAITING</span></span>
       </div>
       <div class="status-row">
         <span class="status-label">DETECTION</span>
@@ -577,11 +330,8 @@
   <div class="panel" id="capture-panel">
     <div class="panel-title">EMERGENCY CAPTURE</div>
     <div class="panel-body">
-      <div id="no-capture">
-        NO CAPTURE<br>AWAITING EMERGENCY
-      </div>
+      <div id="no-capture">NO CAPTURE<br>AWAITING EMERGENCY</div>
       <img id="capture-img" alt="Emergency Capture"/>
-      <div id="capture-ts"></div>
     </div>
   </div>
 
@@ -590,30 +340,14 @@
     <div class="panel-title">DRONE TELEMETRY</div>
     <div class="panel-body">
       <div class="telem-grid">
-        <div class="telem-cell">
-          <div class="telem-label">ALTITUDE</div>
-          <div class="telem-val" id="t-alt">--</div>
-          <div class="telem-unit">meters</div>
-        </div>
-        <div class="telem-cell">
-          <div class="telem-label">SPEED</div>
-          <div class="telem-val" id="t-spd">--</div>
-          <div class="telem-unit">km/h</div>
-        </div>
-        <div class="telem-cell">
-          <div class="telem-label">BATTERY</div>
-          <div class="telem-val" id="t-bat">--</div>
-          <div class="telem-unit">%</div>
-        </div>
-        <div class="telem-cell">
-          <div class="telem-label">SIGNAL</div>
-          <div class="telem-val" id="t-sig">--</div>
-          <div class="telem-unit">%</div>
-        </div>
+        <div class="telem-cell"><div class="telem-label">ALTITUDE</div><div class="telem-val" id="t-alt">--</div><div class="telem-unit">meters</div></div>
+        <div class="telem-cell"><div class="telem-label">SPEED</div><div class="telem-val" id="t-spd">--</div><div class="telem-unit">km/h</div></div>
+        <div class="telem-cell"><div class="telem-label">BATTERY</div><div class="telem-val" id="t-bat">--</div><div class="telem-unit">%</div></div>
+        <div class="telem-cell"><div class="telem-label">SIGNAL</div><div class="telem-val" id="t-sig">--</div><div class="telem-unit">%</div></div>
       </div>
       <div class="compass-wrap">
         <div class="compass">
-          <div class="compass-arrow" id="compass-arrow" style="transform-origin:bottom center;"></div>
+          <div class="compass-arrow" id="compass-arrow"></div>
           <div class="compass-n">N</div>
         </div>
       </div>
@@ -622,21 +356,14 @@
 
   <!-- ROW 4: MAP + LOG -->
   <div id="map-log-row">
-
-    <!-- SECTOR MAP -->
     <div id="map-panel-inner">
       <div class="panel-title" style="padding:5px 12px 4px;">SECTOR SCAN MAP</div>
-      <div class="sector-grid" id="sector-grid">
-        <!-- generated by JS -->
-      </div>
+      <div class="sector-grid" id="sector-grid"></div>
     </div>
-
-    <!-- MISSION LOG -->
     <div id="log-panel-inner">
       <div class="panel-title" style="padding:5px 12px 4px;">MISSION LOG</div>
       <div class="log-list" id="log-list"></div>
     </div>
-
   </div>
 
   <!-- BOTTOM BAR -->
@@ -647,203 +374,148 @@
     </div>
   </div>
 
-</div><!-- /#app -->
-
-<!-- ALARM AUDIO -->
-<audio id="alarm-audio" loop preload="auto">
-  <!-- Inline beep generated via Web Audio API as fallback -->
-</audio>
+</div>
 
 <script>
-// ── MODE FLAG (injected by Flask) ──────────────────────────────────────────
 const WEB_MODE = {{ 'true' if web_mode else 'false' }};
 
-// ── DEMO CANVAS ANIMATION (web mode only) ──────────────────────────────────
+// ── Session ID (unique per browser tab) ───────────────────────────────────
+const SESSION_ID = 'sess_' + Math.random().toString(36).substr(2, 9);
+
+// ── Webcam + AI Processing ─────────────────────────────────────────────────
+let webcamActive = false;
+let processingActive = false;
+let frameCanvas = null;
+let frameCtx = null;
+
 if (WEB_MODE) {
-  const canvas = document.getElementById('camera-stream');
-  if (canvas) {
-    const ctx = canvas.getContext('2d');
-    let t = 0;
-    // Simulated skeleton persons
-    const persons = [
-      { x: 200, y: 180, pose: 'standing', color: '#00ff9d' },
-      { x: 430, y: 200, pose: 'standing', color: '#00ff9d' },
-    ];
-    let demoPose = 'standing';
+  const video = document.getElementById('webcam-video');
+  const annotatedCanvas = document.getElementById('annotated-canvas');
+  const placeholder = document.getElementById('cam-placeholder');
+  const badge = document.getElementById('cam-badge');
+  const startBtn = document.getElementById('start-cam-btn');
+  const camDot = document.getElementById('cam-dot');
+  const camStatusText = document.getElementById('cam-status-text');
 
-    function drawPerson(cx, cy, pose, color) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 8;
-      const r = 16;
-      // Head
-      ctx.beginPath(); ctx.arc(cx, cy - r * 3, r, 0, Math.PI * 2); ctx.stroke();
-      if (pose === 'standing') {
-        // Torso
-        ctx.beginPath(); ctx.moveTo(cx, cy - r*2); ctx.lineTo(cx, cy + r); ctx.stroke();
-        // Arms
-        ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx - r*1.5, cy + r*0.5); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r*1.5, cy + r*0.5); ctx.stroke();
-        // Legs
-        ctx.beginPath(); ctx.moveTo(cx, cy + r); ctx.lineTo(cx - r, cy + r*3); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cx, cy + r); ctx.lineTo(cx + r, cy + r*3); ctx.stroke();
-      } else if (pose === 'sitting') {
-        ctx.beginPath(); ctx.moveTo(cx, cy - r*2); ctx.lineTo(cx, cy + r*0.5); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx - r*1.5, cy); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r*1.5, cy); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cx, cy + r*0.5); ctx.lineTo(cx + r*2, cy + r*0.5); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cx, cy + r*0.5); ctx.lineTo(cx - r*0.5, cy + r*2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cx + r*2, cy + r*0.5); ctx.lineTo(cx + r*2, cy + r*2); ctx.stroke();
-      } else if (pose === 'lying') {
-        ctx.beginPath(); ctx.moveTo(cx - r*3, cy); ctx.lineTo(cx + r*2, cy); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cx - r*3, cy); ctx.lineTo(cx - r*4.5, cy + r*0.5); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cx - r*3, cy); ctx.lineTo(cx - r*4, cy - r*0.5); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cx + r*2, cy); ctx.lineTo(cx + r*3.5, cy + r*0.5); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cx + r*2, cy); ctx.lineTo(cx + r*3, cy - r*0.5); ctx.stroke();
-      }
-      ctx.shadowBlur = 0;
-    }
+  // Offscreen canvas to capture frames
+  frameCanvas = document.createElement('canvas');
+  frameCtx = frameCanvas.getContext('2d');
 
-    function drawGrid() {
-      ctx.strokeStyle = 'rgba(0,212,255,0.08)';
-      ctx.lineWidth = 1;
-      for (let x = 0; x < canvas.width; x += 40) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-      }
-      for (let y = 0; y < canvas.height; y += 40) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-      }
-    }
+  startBtn.addEventListener('click', async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+      });
+      video.srcObject = stream;
+      video.style.opacity = '1';
+      placeholder.style.display = 'none';
+      badge.style.display = 'block';
+      webcamActive = true;
 
-    function drawScanLine() {
-      const y = (t * 1.5) % canvas.height;
-      const grad = ctx.createLinearGradient(0, y - 20, 0, y + 20);
-      grad.addColorStop(0, 'transparent');
-      grad.addColorStop(0.5, 'rgba(0,212,255,0.12)');
-      grad.addColorStop(1, 'transparent');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, y - 20, canvas.width, 40);
-    }
+      // Update camera status
+      camDot.className = 'dot green';
+      camStatusText.textContent = 'CONNECTED';
 
-    function animate() {
-      t++;
-      ctx.fillStyle = '#020a14';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      drawGrid();
-      drawScanLine();
-
-      // Draw persons based on current demo state
-      const poseLookup = { standing: 'standing', sitting: 'sitting', lying: 'lying', none: null };
-      const pose = poseLookup[demoPose] || 'standing';
-      const poseColor = pose === 'lying' ? '#ff2244' : pose === 'sitting' ? '#ff9d00' : '#00ff9d';
-
-      if (pose) {
-        drawPerson(320, 220, pose, poseColor);
-        // Draw bounding box
-        ctx.strokeStyle = poseColor;
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 4]);
-        if (pose === 'standing') ctx.strokeRect(270, 110, 100, 180);
-        else if (pose === 'sitting') ctx.strokeRect(270, 130, 110, 160);
-        else ctx.strokeRect(180, 180, 290, 80);
-        ctx.setLineDash([]);
-        // Label
-        ctx.fillStyle = poseColor;
-        ctx.font = 'bold 11px "Share Tech Mono", monospace';
-        ctx.fillText(pose.toUpperCase(), pose === 'lying' ? 185 : 275, pose === 'lying' ? 175 : 105);
-      }
-
-      // Corner HUD marks
-      ctx.strokeStyle = 'rgba(0,212,255,0.6)';
-      ctx.lineWidth = 2;
-      [[10,10],[canvas.width-10,10],[10,canvas.height-10],[canvas.width-10,canvas.height-10]].forEach(([x,y]) => {
-        const s = 15, sx = x < 50 ? 1 : -1, sy = y < 50 ? 1 : -1;
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + s*sx, y); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + s*sy); ctx.stroke();
+      // Set canvas sizes once video loads
+      video.addEventListener('loadedmetadata', () => {
+        frameCanvas.width  = video.videoWidth  || 640;
+        frameCanvas.height = video.videoHeight || 480;
+        annotatedCanvas.width  = video.videoWidth  || 640;
+        annotatedCanvas.height = video.videoHeight || 480;
+        startFrameProcessing();
       });
 
-      // Timestamp
-      ctx.fillStyle = 'rgba(0,212,255,0.5)';
-      ctx.font = '10px "Share Tech Mono", monospace';
-      ctx.fillText(new Date().toISOString().replace('T',' ').substring(0,19) + ' UTC', 14, canvas.height - 12);
-      ctx.fillText('REC ●', canvas.width - 55, 22);
-
-      requestAnimationFrame(animate);
+    } catch (err) {
+      alert('Camera access denied or not available: ' + err.message);
     }
-    animate();
+  });
 
-    // Sync canvas pose with detection API
-    setInterval(async () => {
+  async function startFrameProcessing() {
+    processingActive = true;
+    const annCtx = annotatedCanvas.getContext('2d');
+
+    async function processNextFrame() {
+      if (!processingActive || !webcamActive) return;
+
       try {
-        const r = await fetch('/detections');
-        const d = await r.json();
-        demoPose = d.pose || 'none';
-      } catch(e) {}
-    }, 1000);
+        // Draw current video frame to offscreen canvas
+        frameCtx.drawImage(video, 0, 0, frameCanvas.width, frameCanvas.height);
+        const frameB64 = frameCanvas.toDataURL('image/jpeg', 0.7);
+
+        // Send to Flask for YOLOv8 processing
+        const response = await fetch('/process_frame', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ frame: frameB64, session_id: SESSION_ID })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+
+          // Display annotated frame on canvas
+          if (result.annotated_frame) {
+            const img = new Image();
+            img.onload = () => {
+              annCtx.clearRect(0, 0, annotatedCanvas.width, annotatedCanvas.height);
+              annCtx.save();
+              annCtx.scale(-1, 1);
+              annCtx.drawImage(img, -annotatedCanvas.width, 0, annotatedCanvas.width, annotatedCanvas.height);
+              annCtx.restore();
+            };
+            img.src = result.annotated_frame;
+          }
+        }
+      } catch (e) {
+        console.warn('Frame processing error:', e);
+      }
+
+      // Process ~5 frames per second (balance quality vs server load)
+      setTimeout(processNextFrame, 200);
+    }
+
+    processNextFrame();
   }
 }
 
-// ── SECTOR MAP INIT ────────────────────────────────────────────────────────
+// ── Sector Map ─────────────────────────────────────────────────────────────
 const ROWS = ['A','B','C','D'];
 const COLS = [1,2,3,4];
 const grid = document.getElementById('sector-grid');
-
 const sectorEls = {};
+
 ROWS.forEach(r => {
   COLS.forEach(c => {
     const key = `${r}${c}`;
     const el = document.createElement('div');
-    el.className = 'sector';
-    el.id = `sector-${key}`;
-    el.dataset.sector = key;
-    el.textContent = key;
-    grid.appendChild(el);
-    sectorEls[key] = el;
+    el.className = 'sector'; el.id = `sector-${key}`; el.dataset.sector = key;
+    el.textContent = key; grid.appendChild(el); sectorEls[key] = el;
   });
 });
 
-// Drone starts at A1
-let dronePos = 'A1';
-let dronePath = [];
-let droneAnimInterval = null;
-let victimSector = null;
+let dronePos = 'A1', dronePath = [], droneAnimInterval = null, victimSector = null;
 
 function clearMap() {
-  Object.values(sectorEls).forEach(el => {
-    el.className = 'sector';
-    el.innerHTML = el.dataset.sector;
-  });
+  Object.values(sectorEls).forEach(el => { el.className = 'sector'; el.innerHTML = el.dataset.sector; });
 }
 
 function animateDrone(path) {
   if (!path || path.length < 2) return;
-  dronePath = [...path];
-  let step = 0;
+  dronePath = [...path]; let step = 0;
   if (droneAnimInterval) clearInterval(droneAnimInterval);
   droneAnimInterval = setInterval(() => {
-    if (step >= dronePath.length) {
-      clearInterval(droneAnimInterval);
-      return;
-    }
-    // Clear previous drone marker (but keep victim + path)
+    if (step >= dronePath.length) { clearInterval(droneAnimInterval); return; }
     Object.values(sectorEls).forEach(el => {
       if (el.classList.contains('drone')) {
-        el.innerHTML = el.dataset.sector;
-        el.className = 'sector';
-        if (el.dataset.sector === victimSector) {
-          el.className = 'sector victim';
-        } else if (dronePath.includes(el.dataset.sector)) {
-          el.className = 'sector path';
-        }
+        el.innerHTML = el.dataset.sector; el.className = 'sector';
+        if (el.dataset.sector === victimSector) el.className = 'sector victim';
+        else if (dronePath.includes(el.dataset.sector)) el.className = 'sector path';
       }
     });
     const s = dronePath[step];
-    const el = sectorEls[s];
-    el.className = 'sector drone';
-    el.innerHTML = `<span class="drone-icon">🚁</span>`;
-    dronePos = s;
-    step++;
+    sectorEls[s].className = 'sector drone';
+    sectorEls[s].innerHTML = '<span class="drone-icon">🚁</span>';
+    dronePos = s; step++;
   }, 400);
 }
 
@@ -851,156 +523,112 @@ function updateMap(data) {
   clearMap();
   const newVictim = data.emergency_sector;
   const path = data.drone_path || [];
-
-  if (newVictim) {
-    victimSector = newVictim;
-  }
-
-  // Highlight path
-  path.forEach(s => {
-    if (sectorEls[s]) sectorEls[s].className = 'sector path';
-  });
-
-  // Mark victim
+  if (newVictim) victimSector = newVictim;
+  path.forEach(s => { if (sectorEls[s]) sectorEls[s].className = 'sector path'; });
   if (victimSector && sectorEls[victimSector]) {
     sectorEls[victimSector].className = 'sector victim';
     sectorEls[victimSector].innerHTML = victimSector + ' 🔴';
   }
-
-  // Animate drone along path (only on new emergency)
-  if (newVictim && path.length > 1) {
-    animateDrone(path);
-  } else {
-    // Show drone at current pos
+  if (newVictim && path.length > 1) animateDrone(path);
+  else {
     if (sectorEls[dronePos]) {
       sectorEls[dronePos].className = 'sector drone';
-      sectorEls[dronePos].innerHTML = `<span class="drone-icon">🚁</span>`;
+      sectorEls[dronePos].innerHTML = '<span class="drone-icon">🚁</span>';
     }
   }
 }
 
-
-// ── CLOCK ──────────────────────────────────────────────────────────────────
+// ── Clock ──────────────────────────────────────────────────────────────────
 let startTime = Date.now();
 function updateClock() {
-  const now = new Date();
-  document.getElementById('clock').textContent =
-    now.toTimeString().slice(0,8);
-  // uptime
+  document.getElementById('clock').textContent = new Date().toTimeString().slice(0,8);
   const up = Math.floor((Date.now() - startTime) / 1000);
-  const h = String(Math.floor(up / 3600)).padStart(2,'0');
-  const m = String(Math.floor((up % 3600)/60)).padStart(2,'0');
-  const s = String(up % 60).padStart(2,'0');
+  const h = String(Math.floor(up/3600)).padStart(2,'0');
+  const m = String(Math.floor((up%3600)/60)).padStart(2,'0');
+  const s = String(up%60).padStart(2,'0');
   document.getElementById('uptime-val').textContent = `${h}:${m}:${s}`;
 }
-setInterval(updateClock, 1000);
-updateClock();
+setInterval(updateClock, 1000); updateClock();
 
-
-// ── ALARM (Web Audio API) ──────────────────────────────────────────────────
-let audioCtx = null;
-let alarmNodes = [];
-let alarmActive = false;
-
+// ── Alarm ──────────────────────────────────────────────────────────────────
+let audioCtx = null, alarmActive = false;
 function startAlarm() {
-  if (alarmActive) return;
-  alarmActive = true;
+  if (alarmActive) return; alarmActive = true;
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function beep() {
       if (!alarmActive) return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
+      osc.connect(gain); gain.connect(audioCtx.destination);
       osc.type = 'square';
       osc.frequency.setValueAtTime(880, audioCtx.currentTime);
       osc.frequency.setValueAtTime(660, audioCtx.currentTime + 0.15);
       gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
       gain.gain.setValueAtTime(0, audioCtx.currentTime + 0.3);
-      osc.start(audioCtx.currentTime);
-      osc.stop(audioCtx.currentTime + 0.32);
+      osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.32);
       setTimeout(beep, 500);
     }
     beep();
-  } catch(e) { console.warn('Audio error:', e); }
+  } catch(e) {}
 }
-
 function stopAlarm() {
   alarmActive = false;
   if (audioCtx) { try { audioCtx.close(); } catch(e){} audioCtx = null; }
 }
 
-
-// ── EMERGENCY STATE ────────────────────────────────────────────────────────
-let lastEmergencyTs = 0;
 let emergencyOn = false;
-let lastLogLen = 0;
-
 function triggerEmergency() {
-  if (emergencyOn) return;
-  emergencyOn = true;
+  if (emergencyOn) return; emergencyOn = true;
   document.getElementById('emergency-overlay').classList.add('active');
   document.getElementById('emergency-banner').classList.add('active');
-  document.getElementById('cam-overlay').style.border = '2px solid var(--danger)';
+  document.getElementById('cam-overlay-border').style.border = '2px solid var(--danger)';
   startAlarm();
 }
-
 function clearEmergency() {
-  if (!emergencyOn) return;
-  emergencyOn = false;
+  if (!emergencyOn) return; emergencyOn = false;
   document.getElementById('emergency-overlay').classList.remove('active');
   document.getElementById('emergency-banner').classList.remove('active');
-  document.getElementById('cam-overlay').style.border = '2px solid transparent';
+  document.getElementById('cam-overlay-border').style.border = '2px solid transparent';
   stopAlarm();
 }
 
-
-// ── DASHBOARD UPDATE ───────────────────────────────────────────────────────
-let maxTotal = 1;
+// ── Dashboard Update (polls /detections) ──────────────────────────────────
+let maxTotal = 1, lastLogLen = 0;
 
 async function updateDashboard() {
   let data;
   try {
-    const res = await fetch('/detections');
+    const url = WEB_MODE ? `/detections?session_id=${SESSION_ID}` : '/detections';
+    const res = await fetch(url);
     data = await res.json();
   } catch(e) { return; }
 
-  // ── Top bar
-  document.getElementById('tb-persons').textContent  = data.persons || 0;
+  document.getElementById('tb-persons').textContent  = data.persons  || 0;
   document.getElementById('tb-standing').textContent = data.standing || 0;
-  document.getElementById('tb-sitting').textContent  = data.sitting || 0;
-  document.getElementById('tb-lying').textContent    = data.lying || 0;
+  document.getElementById('tb-sitting').textContent  = data.sitting  || 0;
+  document.getElementById('tb-lying').textContent    = data.lying    || 0;
 
-  // ── Big status
   const bigEl = document.getElementById('big-status');
   const status = data.status || 'SCANNING';
   bigEl.textContent = status;
-  bigEl.className = 'big-status ' + ({
-    'NORMAL': 'normal', 'WARNING': 'warning', 'EMERGENCY': 'emergency', 'SCANNING': 'normal'
-  }[status] || 'normal');
+  bigEl.className = 'big-status ' + ({'NORMAL':'normal','WARNING':'warning','EMERGENCY':'emergency','SCANNING':'normal'}[status]||'normal');
+  document.getElementById('pose-label').textContent = (data.pose||'none').toUpperCase();
 
-  document.getElementById('pose-label').textContent = (data.pose || 'none').toUpperCase();
-
-  // ── Stats bars
-  const total = Math.max(data.total_detections || 0, 1);
+  const total = Math.max(data.total_detections||0, 1);
   maxTotal = Math.max(maxTotal, total);
-
   document.getElementById('num-total').textContent    = data.total_detections || 0;
   document.getElementById('num-standing').textContent = data.standing || 0;
-  document.getElementById('num-sitting').textContent  = data.sitting || 0;
-  document.getElementById('num-lying').textContent    = data.lying || 0;
-
-  document.getElementById('bar-total').style.width    = Math.min((data.total_detections||0)/maxTotal*100, 100)+'%';
-  document.getElementById('bar-standing').style.width = Math.min((data.standing||0)/(data.persons||1)*100,100)+'%';
-  document.getElementById('bar-sitting').style.width  = Math.min((data.sitting||0)/(data.persons||1)*100,100)+'%';
-  document.getElementById('bar-lying').style.width    = Math.min((data.lying||0)/(data.persons||1)*100,100)+'%';
-
+  document.getElementById('num-sitting').textContent  = data.sitting  || 0;
+  document.getElementById('num-lying').textContent    = data.lying    || 0;
+  document.getElementById('bar-total').style.width    = Math.min((data.total_detections||0)/maxTotal*100,100)+'%';
+  document.getElementById('bar-standing').style.width = Math.min((data.standing||0)/Math.max(data.persons||1,1)*100,100)+'%';
+  document.getElementById('bar-sitting').style.width  = Math.min((data.sitting||0)/Math.max(data.persons||1,1)*100,100)+'%';
+  document.getElementById('bar-lying').style.width    = Math.min((data.lying||0)/Math.max(data.persons||1,1)*100,100)+'%';
   document.getElementById('cum-standing').textContent = data.total_standing || 0;
-  document.getElementById('cum-sitting').textContent  = data.total_sitting || 0;
-  document.getElementById('cum-lying').textContent    = data.total_lying || 0;
+  document.getElementById('cum-sitting').textContent  = data.total_sitting  || 0;
+  document.getElementById('cum-lying').textContent    = data.total_lying    || 0;
 
-  // ── Telemetry
   if (data.telemetry) {
     const t = data.telemetry;
     document.getElementById('t-alt').textContent = t.altitude;
@@ -1010,65 +638,46 @@ async function updateDashboard() {
     batEl.textContent = bat;
     batEl.style.color = bat < 20 ? 'var(--danger)' : bat < 40 ? 'var(--warn)' : 'var(--accent)';
     document.getElementById('t-sig').textContent = Math.round(t.signal);
-
-    // Compass
-    const arrow = document.getElementById('compass-arrow');
-    arrow.style.transform = `translateX(-50%) rotate(${t.heading}deg)`;
+    document.getElementById('compass-arrow').style.transform = `translateX(-50%) rotate(${t.heading}deg)`;
   }
 
-  // ── Emergency capture
   if (data.capture_b64) {
     document.getElementById('no-capture').style.display = 'none';
     const img = document.getElementById('capture-img');
     img.src = 'data:image/jpeg;base64,' + data.capture_b64;
     img.style.display = 'block';
-    const ts = document.getElementById('capture-ts');
-    ts.style.display = 'block';
-    ts.textContent = new Date().toTimeString().slice(0,8);
   }
 
-  // ── Map
   updateMap(data);
 
-  // ── Emergency UI
-  if (data.emergency) {
-    triggerEmergency();
-  } else {
-    clearEmergency();
-  }
+  if (data.emergency) triggerEmergency();
+  else clearEmergency();
 
-  // ── Mission log
-  const logList = document.getElementById('log-list');
   const logs = data.log || [];
   if (logs.length !== lastLogLen) {
     lastLogLen = logs.length;
+    const logList = document.getElementById('log-list');
     logList.innerHTML = '';
     logs.forEach((line, i) => {
       const div = document.createElement('div');
-      div.className = 'log-line' + (i === 0 ? ' new' : '');
-      if (line.includes('EMERGENCY') || line.includes('Alarm') || line.includes('emergency'))
-        div.classList.add('emg');
-      else if (line.includes('WARNING') || line.includes('Sitting') || line.includes('sitting'))
-        div.classList.add('warn');
-      else
-        div.classList.add('info');
+      div.className = 'log-line' + (i===0?' new':'');
+      if (line.includes('EMERGENCY')||line.includes('emergency')) div.classList.add('emg');
+      else if (line.includes('WARNING')||line.includes('sitting')) div.classList.add('warn');
+      else div.classList.add('info');
       div.textContent = line;
       logList.appendChild(div);
     });
   }
 
-  // ── Ticker (latest log entry)
   if (logs.length > 0) {
-    const tickerEl = document.getElementById('ticker-msg');
-    tickerEl.textContent = logs[0];
-    tickerEl.className = 'log-entry' + (logs[0].includes('EMERGENCY') ? ' log-emergency' : ' log-normal');
+    const t = document.getElementById('ticker-msg');
+    t.textContent = logs[0];
+    t.className = 'log-entry' + (logs[0].includes('EMERGENCY') ? ' log-emergency' : ' log-normal');
   }
 }
 
 setInterval(updateDashboard, 1000);
 updateDashboard();
-
-// ── SECTOR MAP INITIAL STATE ───────────────────────────────────────────────
 updateMap({ emergency_sector: null, drone_path: [] });
 </script>
 </body>
